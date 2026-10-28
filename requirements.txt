@@ -1,0 +1,8 @@
+mne
+numpy
+scipy
+pandas
+scikit-learn
+matplotlib
+jupyter
+pyyaml

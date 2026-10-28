@@ -1,0 +1,14 @@
+# EEG datasets - keep local
+data/
+
+# Generated experiment results
+results/
+
+# Python cache and environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Temporary logs
+*.log
