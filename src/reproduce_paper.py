@@ -6,7 +6,8 @@ Protocol:
 - Binary left-vs-right CSP-LDA: four window widths and 3-6 s baseline.
 - Four-class CSP-LDA: six OVO classifiers, four CSP features,
   3-second sliding windows and 3-6 s baseline.
-- All window times are relative to trial-start event 768.
+- All window times are relative to the class-cue onset (events 769-772).
+  In this dataset, the cue occurs 2 seconds after trial-start event 768.
 """
 
 from pathlib import Path
@@ -40,6 +41,7 @@ BINARY_WIDTHS = [2.0, 2.5, 3.0, 3.5]
 SLIDE_STEP = 0.1
 BASELINE = (3.0, 6.0)
 FOUR_CLASS_WIDTH = 3.0
+CUE_ONSET_OFFSET_SEC = 2.0
 
 
 def read_gdf(path):
@@ -141,13 +143,14 @@ def filtered_eeg(raw, path):
 
 
 def extract_windows(data, trial_starts, sfreq, start_sec, width_sec):
-    """Extract fixed-length windows; times are relative to event 768."""
+    """Extract windows relative to class-cue onset, not event-768 trial start."""
+    cue_offset = int(round(CUE_ONSET_OFFSET_SEC * sfreq))
     start_offset = int(round(start_sec * sfreq))
     length = int(round(width_sec * sfreq))
     epochs = []
 
     for trial_start in trial_starts:
-        begin = int(trial_start) + start_offset
+        begin = int(trial_start) + cue_offset + start_offset
         end = begin + length
         if begin < 0 or end > data.shape[-1]:
             raise ValueError(
@@ -198,46 +201,15 @@ def evaluate_window(
     if len(np.unique(y_train)) < 2:
         raise ValueError(f"{subject}: fewer than two training classes")
 
-    if experiment == "four_class_ovo":
-        # Six pairwise CSP-LDA classifiers: (0,1), (0,2), (0,3),
-        # (1,2), (1,3), (2,3). Each pair fits its own CSP.
-        votes = np.zeros((len(x_test), 4), dtype=int)
-
-        for class_a, class_b in [
-            (0, 1), (0, 2), (0, 3),
-            (1, 2), (1, 3), (2, 3),
-        ]:
-            pair_mask = np.isin(y_train, [class_a, class_b])
-            pair_model = make_pipeline(
-                CSP(
-                    n_components=4,
-                    reg=None,
-                    log=True,
-                    norm_trace=False,
-                    component_order="mutual_info",
-                ),
-                LinearDiscriminantAnalysis(),
-            )
-            pair_model.fit(x_train[pair_mask], y_train[pair_mask])
-            pair_predictions = pair_model.predict(x_test)
-
-            for predicted_class in (class_a, class_b):
-                votes[:, predicted_class] += (
-                    pair_predictions == predicted_class
-                ).astype(int)
-
-        # Majority voting across the six pairwise classifiers.
-        predictions = np.argmax(votes, axis=1)
-    else:
-        model = make_classifier(experiment)
-        model.fit(x_train, y_train)
-        predictions = model.predict(x_test)
+    model = make_classifier(experiment)
+    model.fit(x_train, y_train)
+    predictions = model.predict(x_test)
 
     return {
         "subject": subject,
         "experiment": experiment,
-        "window_start_trial_sec": round(start_sec, 1),
-        "window_end_trial_sec": round(end_sec, 1),
+        "window_start_cue_sec": round(start_sec, 1),
+        "window_end_cue_sec": round(end_sec, 1),
         "window_width_sec": round(width, 1),
         "accuracy": accuracy_score(y_test, predictions),
         "n_train": len(y_train),
@@ -356,8 +328,8 @@ def main():
         results.groupby(
             [
                 "experiment",
-                "window_start_trial_sec",
-                "window_end_trial_sec",
+                "window_start_cue_sec",
+                "window_end_cue_sec",
                 "window_width_sec",
             ],
             as_index=False,
@@ -379,8 +351,8 @@ def main():
         best = group.loc[group["mean_accuracy"].idxmax()]
         print(
             f"{experiment}: {best['mean_accuracy']:.4f} "
-            f"(window {best['window_start_trial_sec']:.1f}-"
-            f"{best['window_end_trial_sec']:.1f} s)"
+            f"(cue-relative window {best['window_start_cue_sec']:.1f}-"
+            f"{best['window_end_cue_sec']:.1f} s)"
         )
 
 
