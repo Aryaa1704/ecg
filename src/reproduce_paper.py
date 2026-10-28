@@ -355,8 +355,8 @@ def main(subject_numbers=None):
         best = group.loc[group["mean_accuracy"].idxmax()]
         print(
             f"{experiment}: {best['mean_accuracy']:.4f} "
-            f"(window {best['window_start_trial_sec']:.1f}-"
-            f"{best['window_end_trial_sec']:.1f} s)"
+            f"(window {best['window_start_cue_sec']:.1f}-"
+            f"{best['window_end_cue_sec']:.1f} s)"
         )
 
 
