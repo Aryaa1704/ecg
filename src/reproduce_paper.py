@@ -11,6 +11,7 @@ Protocol:
 """
 
 from pathlib import Path
+import argparse
 import warnings
 
 import mne
@@ -227,7 +228,10 @@ def windows_for_width(width):
     ]
 
 
-def main():
+def main(subject_numbers=None):
+    if subject_numbers is None:
+        subject_numbers = range(1, 10)
+
     if not DATA_DIR.exists():
         raise FileNotFoundError(
             f"Dataset directory not found: {DATA_DIR.resolve()}"
@@ -236,7 +240,7 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     rows = []
 
-    for subject_number in range(1, 10):
+    for subject_number in subject_numbers:
         subject = f"A{subject_number:02d}"
         train_gdf = DATA_DIR / f"{subject}T.gdf"
         test_gdf = DATA_DIR / f"{subject}E.gdf"
@@ -357,6 +361,20 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Run the reference-paper CSP-LDA experiments."
+    )
+    parser.add_argument(
+        "--subjects",
+        nargs="+",
+        type=int,
+        choices=range(1, 10),
+        default=list(range(1, 10)),
+        metavar="N",
+        help="Subject numbers to run (1-9). Default: all subjects.",
+    )
+    args = parser.parse_args()
+
     with warnings.catch_warnings():
         warnings.simplefilter("default")
-        main()
+        main(args.subjects)
