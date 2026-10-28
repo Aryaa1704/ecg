@@ -6,8 +6,7 @@ Protocol:
 - Binary left-vs-right CSP-LDA: four window widths and 3-6 s baseline.
 - Four-class CSP-LDA: six OVO classifiers, four CSP features,
   3-second sliding windows and 3-6 s baseline.
-- Sliding-window times are relative to visual cue onset (events 769-772).
-  In this dataset, cue onset is 2 seconds after event 768.
+- All window times are relative to trial-start event 768.
 """
 
 from pathlib import Path
@@ -42,7 +41,6 @@ BINARY_WIDTHS = [2.0, 2.5, 3.0, 3.5]
 SLIDE_STEP = 0.1
 BASELINE = (3.0, 6.0)
 FOUR_CLASS_WIDTH = 3.0
-CUE_ONSET_OFFSET_SEC = 2.0
 
 
 def read_gdf(path):
@@ -144,14 +142,13 @@ def filtered_eeg(raw, path):
 
 
 def extract_windows(data, trial_starts, sfreq, start_sec, width_sec):
-    """Extract windows relative to cue onset; event 768 precedes cue by 2 s."""
-    cue_offset = int(round(CUE_ONSET_OFFSET_SEC * sfreq))
+    """Extract fixed-length windows; times are relative to event 768."""
     start_offset = int(round(start_sec * sfreq))
     length = int(round(width_sec * sfreq))
     epochs = []
 
     for trial_start in trial_starts:
-        begin = int(trial_start) + cue_offset + start_offset
+        begin = int(trial_start) + start_offset
         end = begin + length
         if begin < 0 or end > data.shape[-1]:
             raise ValueError(
@@ -209,8 +206,8 @@ def evaluate_window(
     return {
         "subject": subject,
         "experiment": experiment,
-        "window_start_cue_sec": round(start_sec, 1),
-        "window_end_cue_sec": round(end_sec, 1),
+        "window_start_trial_sec": round(start_sec, 1),
+        "window_end_trial_sec": round(end_sec, 1),
         "window_width_sec": round(width, 1),
         "accuracy": accuracy_score(y_test, predictions),
         "n_train": len(y_train),
@@ -332,8 +329,8 @@ def main(subject_numbers=None):
         results.groupby(
             [
                 "experiment",
-                "window_start_cue_sec",
-                "window_end_cue_sec",
+                "window_start_trial_sec",
+                "window_end_trial_sec",
                 "window_width_sec",
             ],
             as_index=False,
@@ -355,8 +352,8 @@ def main(subject_numbers=None):
         best = group.loc[group["mean_accuracy"].idxmax()]
         print(
             f"{experiment}: {best['mean_accuracy']:.4f} "
-            f"(window {best['window_start_cue_sec']:.1f}-"
-            f"{best['window_end_cue_sec']:.1f} s)"
+            f"(window {best['window_start_trial_sec']:.1f}-"
+            f"{best['window_end_trial_sec']:.1f} s)"
         )
 
 
